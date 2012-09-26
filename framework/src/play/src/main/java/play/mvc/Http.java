@@ -524,7 +524,7 @@ public class Http {
          * @param value Cookie value
          */
         public void setCookie(String name, String value) {
-            setCookie(name, value, -1);
+            setCookie(name, value, Integer.MIN_VALUE);
         }
 
         /**

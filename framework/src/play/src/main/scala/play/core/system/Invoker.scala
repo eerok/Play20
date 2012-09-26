@@ -140,7 +140,7 @@ class ActionInvoker extends Actor {
             }
 
             flashCookie.map { newCookie =>
-              r.withHeaders(SET_COOKIE -> Cookies.merge(header.headers.get(SET_COOKIE).getOrElse(""), Seq(newCookie)))
+              r.withHeaders(SET_COOKIE -> Cookies.encode(Seq(newCookie)))
             }.getOrElse(r)
 
           }

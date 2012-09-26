@@ -184,7 +184,8 @@ object PlayBuild extends Build {
     object Dependencies {
 
         val runtime = Seq(
-            "io.netty"                          %    "netty"                    %   "3.5.0.Final",
+
+            "io.netty"                          %    "netty"                    %   "3.5.5.Final",
             "org.slf4j"                         %    "slf4j-api"                %   "1.6.4",
             "org.slf4j"                         %    "jul-to-slf4j"             %   "1.6.4",
             "org.slf4j"                         %    "jcl-over-slf4j"           %   "1.6.4",

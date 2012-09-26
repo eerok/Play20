@@ -186,7 +186,8 @@ trait PlainResult extends Result with WithHeaders[PlainResult] {
    * @return the new result
    */
   def withCookies(cookies: Cookie*): PlainResult = {
-    withHeaders(SET_COOKIE -> Cookies.merge(header.headers.get(SET_COOKIE).getOrElse(""), cookies))
+    withHeaders(cookies.map(x => (SET_COOKIE -> Cookies.encode(Seq(x)))) :_* )
+    //withHeaders(SET_COOKIE -> Cookies.merge(header.headers.get(SET_COOKIE).getOrElse(""), cookies))
   }
 
   /**
@@ -201,7 +202,7 @@ trait PlainResult extends Result with WithHeaders[PlainResult] {
    * @return the new result
    */
   def discardingCookies(names: String*): PlainResult = {
-    withHeaders(SET_COOKIE -> Cookies.merge(header.headers.get(SET_COOKIE).getOrElse(""), Nil, discard = names))
+    withHeaders(names.map(x => (SET_COOKIE -> Cookies.encode(Seq(),Seq(x)))) :_* )
   }
 
   /**

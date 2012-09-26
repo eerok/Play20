@@ -279,7 +279,7 @@ package play.api.mvc {
     /**
      * The cookie expiration date in seconds, `-1` for a transient cookie
      */
-    val maxAge = -1
+    val maxAge = Integer.MIN_VALUE
 
     /**
      * `true` if the Cookie should have the secure flag, restricting usage to https. Defaults to false.
@@ -410,7 +410,7 @@ package play.api.mvc {
     val emptyCookie = new Session
     override val isSigned = true
     override val secure = Play.maybeApplication.flatMap(_.configuration.getBoolean("session.secure")).getOrElse(false)
-    override val maxAge = Play.maybeApplication.flatMap(_.configuration.getInt("session.maxAge")).getOrElse(-1)
+    override val maxAge = Play.maybeApplication.flatMap(_.configuration.getInt("session.maxAge")).getOrElse(Integer.MIN_VALUE)
     override val httpOnly = Play.maybeApplication.flatMap(_.configuration.getBoolean("session.httpOnly")).getOrElse(true)
 
     def deserialize(data: Map[String, String]) = new Session(data)
@@ -556,8 +556,9 @@ package play.api.mvc {
       }
       discard.foreach { n =>
         encoder.addCookie {
+          val date = -System.currentTimeMillis.intValue
           val nc = new DefaultCookie(n, "")
-          nc.setMaxAge(0)
+          nc.setMaxAge(date)
           nc
         }
       }
@@ -574,18 +575,6 @@ package play.api.mvc {
       new CookieDecoder().decode(cookieHeader).asScala.map { c =>
         Cookie(c.getName, c.getValue, c.getMaxAge, Option(c.getPath).getOrElse("/"), Option(c.getDomain), c.isSecure, c.isHttpOnly)
       }.toSeq
-    }
-
-    /**
-     * Merges an existing Set-Cookie header with new cookie values
-     *
-     * @param cookieHeader the existing Set-Cookie header value
-     * @param cookies the new cookies to encode
-     * @param discard discard these cookies as well
-     * @return a valid Set-Cookie header value
-     */
-    def merge(cookieHeader: String, cookies: Seq[Cookie], discard: Seq[String] = Nil): String = {
-      encode(cookies ++ decode(cookieHeader), discard)
     }
 
   }
