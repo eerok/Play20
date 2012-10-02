@@ -92,7 +92,7 @@ package play.api.mvc {
     /**
      * The HTTP cookies.
      */
-    lazy val cookies: Cookies = Cookies(headers.get(play.api.http.HeaderNames.COOKIE))
+    lazy val cookies: Cookies = Cookies(headers.getAll(play.api.http.HeaderNames.COOKIE))
 
     /**
      * Parses the `Session` cookie and returns the `Session` data.
@@ -525,13 +525,22 @@ package play.api.mvc {
     /**
      * Extract cookies from the Set-Cookie header.
      */
-    def apply(header: Option[String]) = new Cookies {
+    def apply(headers: Seq[String]) = new Cookies {
 
-      lazy val cookies: Map[String, Cookie] = header.map(Cookies.decode(_)).getOrElse(Seq.empty).groupBy(_.name).mapValues(_.head)
+      lazy val cookies: Map[String,Cookie] = headers.map(Cookies.decode(_)).groupBy(_.name).mapValues(_.head)
 
       def get(name: String) = cookies.get(name)
       override def toString = cookies.toString
 
+    }
+
+    def discard(cookieName: String): String = {
+      val date = -System.currentTimeMillis()
+      val discard = new DefaultCookie(cookieName, "")
+      discard.setMaxAge(date.toInt)
+      val encoder = new CookieEncoder(true)
+      encoder.addCookie(discard)
+      encoder.encode()
     }
 
     /**
@@ -541,27 +550,19 @@ package play.api.mvc {
      * @param discard discard these cookies as well
      * @return a valid Set-Cookie header value
      */
-    def encode(cookies: Seq[Cookie], discard: Seq[String] = Nil): String = {
+    def encode(cookie: Cookie): String = {
       val encoder = new CookieEncoder(true)
-      cookies.foreach { c =>
-        encoder.addCookie {
-          val nc = new DefaultCookie(c.name, c.value)
-          nc.setMaxAge(c.maxAge)
-          nc.setPath(c.path)
-          c.domain.map(nc.setDomain(_))
-          nc.setSecure(c.secure)
-          nc.setHttpOnly(c.httpOnly)
-          nc
-        }
+
+      encoder.addCookie {
+        val nc = new DefaultCookie(cookie.name, cookie.value)
+        nc.setMaxAge(cookie.maxAge)
+        nc.setPath(cookie.path)
+        cookie.domain.map(nc.setDomain(_))
+        nc.setSecure(cookie.secure)
+        nc.setHttpOnly(cookie.httpOnly)
+        nc
       }
-      discard.foreach { n =>
-        encoder.addCookie {
-          val date = -System.currentTimeMillis.intValue
-          val nc = new DefaultCookie(n, "")
-          nc.setMaxAge(date)
-          nc
-        }
-      }
+
       encoder.encode()
     }
 
@@ -571,10 +572,10 @@ package play.api.mvc {
      * @param cookieHeader the Set-Cookie header value
      * @return decoded cookies
      */
-    def decode(cookieHeader: String): Seq[Cookie] = {
-      new CookieDecoder().decode(cookieHeader).asScala.map { c =>
-        Cookie(c.getName, c.getValue, c.getMaxAge, Option(c.getPath).getOrElse("/"), Option(c.getDomain), c.isSecure, c.isHttpOnly)
-      }.toSeq
+    def decode(cookieHeader: String): Cookie = {
+      val c = new CookieDecoder().decode(cookieHeader).asScala.toList(0)
+      Cookie(c.getName, c.getValue, c.getMaxAge, Option(c.getPath).getOrElse("/"), Option(c.getDomain), c.isSecure, c.isHttpOnly)
+      
     }
 
   }

@@ -104,7 +104,7 @@ object Assets extends Controller {
 
                 // Prepare a streamed response
                 val response = SimpleResult(
-                  header = ResponseHeader(OK, Map(
+                  header = ResponseHeader(OK, Seq(
                     CONTENT_LENGTH -> length.toString,
                     CONTENT_TYPE -> MimeTypes.forFileName(file).getOrElse(BINARY)
                   )),

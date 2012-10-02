@@ -130,9 +130,10 @@ class ActionInvoker extends Actor {
             val header = r.header
 
             val flashCookie = {
-              header.headers.get(SET_COOKIE)
+              header.headers.filter(_._1 == SET_COOKIE)
+                .map(_._2)
                 .map(Cookies.decode(_))
-                .flatMap(_.find(_.name == Flash.COOKIE_NAME)).orElse {
+                .find(_.name == Flash.COOKIE_NAME).orElse {
                   Option(request.flash).filterNot(_.isEmpty).map { _ =>
                     Cookie(Flash.COOKIE_NAME, "", 0)
                   }
@@ -140,7 +141,7 @@ class ActionInvoker extends Actor {
             }
 
             flashCookie.map { newCookie =>
-              r.withHeaders(SET_COOKIE -> Cookies.encode(Seq(newCookie)))
+              r.withHeaders(SET_COOKIE -> Cookies.encode(newCookie))
             }.getOrElse(r)
 
           }

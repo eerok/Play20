@@ -14,7 +14,7 @@ import play.api.http.HeaderNames._
  * @param status the response status, e.g. ‘200 OK’
  * @param headers the HTTP headers
  */
-case class ResponseHeader(status: Int, headers: Map[String, String] = Map.empty) {
+case class ResponseHeader(status: Int, headers: Seq[(String, String)] = Seq()) {
 
   override def toString = {
     status + ", " + headers
@@ -157,7 +157,7 @@ object Result {
    * case Result(status, headers) => ...
    * }}}
    */
-  def unapply(result: Result): Option[(Int, Map[String, String])] = result match {
+  def unapply(result: Result): Option[(Int, Seq[(String, String)])] = result match {
     case r: PlainResult => Some(r.header.status, r.header.headers)
     case _ => None
   }
@@ -186,7 +186,7 @@ trait PlainResult extends Result with WithHeaders[PlainResult] {
    * @return the new result
    */
   def withCookies(cookies: Cookie*): PlainResult = {
-    withHeaders(cookies.map(x => (SET_COOKIE -> Cookies.encode(Seq(x)))) :_* )
+    withHeaders(cookies.map(x => (SET_COOKIE -> Cookies.encode(x))): _*)
     //withHeaders(SET_COOKIE -> Cookies.merge(header.headers.get(SET_COOKIE).getOrElse(""), cookies))
   }
 
@@ -202,7 +202,7 @@ trait PlainResult extends Result with WithHeaders[PlainResult] {
    * @return the new result
    */
   def discardingCookies(names: String*): PlainResult = {
-    withHeaders(names.map(x => (SET_COOKIE -> Cookies.encode(Seq(),Seq(x)))) :_* )
+    withHeaders(names.map(x => (SET_COOKIE -> Cookies.discard(x))): _*)
   }
 
   /**
@@ -312,7 +312,15 @@ case class SimpleResult[A](header: ResponseHeader, body: Enumerator[A])(implicit
    * @return the new result
    */
   def withHeaders(headers: (String, String)*) = {
-    copy(header = header.copy(headers = header.headers ++ headers))
+    
+    def merge(oldHeaders: Seq[(String, String)]) = {
+      def isCookie(h:(String,String)) = h._1.toLowerCase == SET_COOKIE.toLowerCase
+      val uniqueHeaders = (oldHeaders ++ headers).toMap.toSeq.filterNot(isCookie)
+      val cookies = oldHeaders ++ headers filter isCookie
+      uniqueHeaders ++ cookies 
+    }
+
+    copy(header = header.copy(headers = merge(header.headers)))
   }
 
   override def toString = {
@@ -364,7 +372,6 @@ case class AsyncResult(result: Promise[Result]) extends Result with WithHeaders[
    * @return The transformed `AsyncResult`
    */
   def transform(f: Result => Result): AsyncResult = AsyncResult(result.map(f))
-
 
   def map(f: Result => Result): AsyncResult = AsyncResult(result.map(f))
 
@@ -504,7 +511,6 @@ case class AsyncResult(result: Promise[Result]) extends Result with WithHeaders[
 
 }
 
-
 /**
  * A Codec handle the conversion of String to Byte arrays.
  *
@@ -569,7 +575,7 @@ trait Results {
      */
     def apply[C](content: C)(implicit writeable: Writeable[C], contentTypeOf: ContentTypeOf[C]): SimpleResult[C] = {
       SimpleResult(
-        header = ResponseHeader(status, contentTypeOf.mimeType.map(ct => Map(CONTENT_TYPE -> ct)).getOrElse(Map.empty)),
+        header = ResponseHeader(status, contentTypeOf.mimeType.map(ct => Seq(CONTENT_TYPE -> ct)).getOrElse(Seq())),
         Enumerator(content))
     }
 
@@ -582,12 +588,10 @@ trait Results {
      */
     def sendFile(content: java.io.File, inline: Boolean = false, fileName: java.io.File => String = _.getName, onClose: () => Unit = () => ()): SimpleResult[Array[Byte]] = {
       SimpleResult(
-        header = ResponseHeader(OK, Map(
-          CONTENT_LENGTH -> content.length.toString,
-          CONTENT_TYPE -> play.api.libs.MimeTypes.forFileName(content.getName).getOrElse(play.api.http.ContentTypes.BINARY)
-        ) ++ (if (inline) Map.empty else Map(CONTENT_DISPOSITION -> ("attachment; filename=" + fileName(content))))),
-        Enumerator.fromFile(content) &> Enumeratee.onIterateeDone(onClose)
-      )
+        header = ResponseHeader(OK, Seq(
+          (CONTENT_LENGTH, content.length.toString),
+          (CONTENT_TYPE, play.api.libs.MimeTypes.forFileName(content.getName).getOrElse(play.api.http.ContentTypes.BINARY))) ++ (if (inline) Seq() else Seq((CONTENT_DISPOSITION, ("attachment; filename=" + fileName(content)))))),
+        Enumerator.fromFile(content) &> Enumeratee.onIterateeDone(onClose))
     }
 
     /**
@@ -599,13 +603,13 @@ trait Results {
      */
     def stream[C](content: Enumerator[C])(implicit writeable: Writeable[C], contentTypeOf: ContentTypeOf[C]): ChunkedResult[C] = {
       ChunkedResult(
-        header = ResponseHeader(status, contentTypeOf.mimeType.map(ct => Map(CONTENT_TYPE -> ct)).getOrElse(Map.empty)),
+        header = ResponseHeader(status, contentTypeOf.mimeType.map(ct => Seq(CONTENT_TYPE -> ct)).getOrElse(Seq())),
         iteratee => content |>> iteratee)
     }
 
     def feed[C](content: Enumerator[C])(implicit writeable: Writeable[C]): SimpleResult[C] = {
       SimpleResult(
-        header = ResponseHeader(status, Map(CONTENT_LENGTH -> "-1")),
+        header = ResponseHeader(status, Seq(CONTENT_LENGTH -> "-1")),
         body = content)
     }
 
@@ -618,7 +622,7 @@ trait Results {
      */
     def stream[C](content: Iteratee[C, Unit] => Unit)(implicit writeable: Writeable[C], contentTypeOf: ContentTypeOf[C]): ChunkedResult[C] = {
       ChunkedResult(
-        header = ResponseHeader(status, contentTypeOf.mimeType.map(ct => Map(CONTENT_TYPE -> ct)).getOrElse(Map.empty)),
+        header = ResponseHeader(status, contentTypeOf.mimeType.map(ct => Seq(CONTENT_TYPE -> ct)).getOrElse(Seq())),
         content)
     }
 
@@ -725,7 +729,7 @@ trait Results {
 
   /** Generates a ‘500 INTERNAL_SERVER_ERROR’ result. */
   val InternalServerError = new Status(INTERNAL_SERVER_ERROR)
-  
+
   /** Generates a ‘501 NOT_IMPLEMENTED’ result. */
   val NotImplemented = new Status(NOT_IMPLEMENTED)
 

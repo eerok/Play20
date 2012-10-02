@@ -128,7 +128,7 @@ object Helpers extends Status with HeaderNames {
   /**
    * Extracts the Cookies of this Result value.
    */
-  def cookies(of: Result): Cookies = Cookies(header(SET_COOKIE, of))
+  def cookies(of: Result): Cookies = Cookies(header(SET_COOKIE, of).toSeq)
 
   /**
    * Extracts the Flash values of this Result value.
@@ -145,10 +145,10 @@ object Helpers extends Status with HeaderNames {
    * Extracts the Location header of this Result value if this Result is a Redirect.
    */
   def redirectLocation(of: Result): Option[String] = of match {
-    case Result(FOUND, headers) => headers.get(LOCATION)
-    case Result(SEE_OTHER, headers) => headers.get(LOCATION)
-    case Result(TEMPORARY_REDIRECT, headers) => headers.get(LOCATION)
-    case Result(MOVED_PERMANENTLY, headers) => headers.get(LOCATION)
+    case Result(FOUND, headers) => headers.toMap.get(LOCATION)
+    case Result(SEE_OTHER, headers) => headers.toMap.get(LOCATION)
+    case Result(TEMPORARY_REDIRECT, headers) => headers.toMap.get(LOCATION)
+    case Result(MOVED_PERMANENTLY, headers) => headers.toMap.get(LOCATION)
     case Result(_, _) => None
     case AsyncResult(p) => redirectLocation(p.await.get)
     case r => sys.error("Cannot extract the headers from a result of type " + r.getClass.getName)
@@ -157,14 +157,14 @@ object Helpers extends Status with HeaderNames {
   /**
    * Extracts an Header value of this Result value.
    */
-  def header(header: String, of: Result): Option[String] = headers(of).get(header)
+  def header(header: String, of: Result): Option[String] = headers(of).toMap.get(header)
 
   /**
    * Extracts all Headers of this Result value.
    */
   def headers(of: Result): Map[String, String] = of match {
-    case Result(_, headers) => headers
-    case AsyncResult(p) => headers(p.await.get)
+    case Result(_, headers) => headers.toMap
+    case AsyncResult(p) => headers(p.await.get).toMap
     case r => sys.error("Cannot extract the headers from a result of type " + r.getClass.getName)
   }
 

@@ -107,13 +107,6 @@ private[server] class PlayDefaultUpstreamHandler(server: Server, allChannels: De
                 // Set response headers
                 headers.filterNot(_ == (CONTENT_LENGTH, "-1")).foreach {
 
-                  // Fix a bug for Set-Cookie header. 
-                  // Multiple cookies could be merged in a single header
-                  // but it's not properly supported by some browsers
-                  case (name @ play.api.http.HeaderNames.SET_COOKIE, value) => {
-                    nettyResponse.setHeader(name, Cookies.decode(value).map { c => Cookies.encode(Seq(c)) }.asJava)
-                  }
-
                   case (name, value) => nettyResponse.setHeader(name, value)
                 }
 
@@ -123,7 +116,7 @@ private[server] class PlayDefaultUpstreamHandler(server: Server, allChannels: De
                 }
 
                 // Stream the result
-                headers.get(CONTENT_LENGTH).map { contentLength =>
+                headers.filter( _._1 == CONTENT_LENGTH).map { contentLength =>
 
                   val writer: Function1[r.BODY_CONTENT, Promise[Unit]] = x => {
                     if (e.getChannel.isConnected())
@@ -148,7 +141,7 @@ private[server] class PlayDefaultUpstreamHandler(server: Server, allChannels: De
 
                   body(bodyIteratee)
 
-                }.getOrElse {
+                }.headOption.getOrElse {
 
                   // No Content-Length header specified, buffer in-memory
                   val channelBuffer = ChannelBuffers.dynamicBuffer(512)
@@ -184,7 +177,7 @@ private[server] class PlayDefaultUpstreamHandler(server: Server, allChannels: De
                     import scala.collection.JavaConverters._
                     import play.api.mvc._
 
-                    nettyResponse.setHeader(name, Cookies.decode(value).map { c => Cookies.encode(Seq(c)) }.asJava)
+                    nettyResponse.setHeader(name, value)
 
                   }
 
